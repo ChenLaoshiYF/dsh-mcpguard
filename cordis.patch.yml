@@ -1,0 +1,6 @@
+- insert:
+    - id: mcpguard
+      name: dsh-mcpguard
+      config:
+        sensitivity: medium
+        scanOnStartup: false
