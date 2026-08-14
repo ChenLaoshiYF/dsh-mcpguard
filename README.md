@@ -28,6 +28,8 @@ dsh plugin --profile web add "github:ChenLaoshiYF/dsh-mcpguard"
 | UNI-001 | Unicode 隐形字符（零宽/Bidi/私有区） | high |
 | B64-001 | 可疑 base64 长串 | medium |
 | INJ-001 | 指令覆盖（ignore previous instructions） | **critical** |
+| INJ-002 | 角色扮演注入（"从现在开始你是…"） | **critical** |
+| INJ-003 | 多语言指令覆盖（日語/韓語指令忽略） | high |
 | PTH-001 | 敏感路径（~/.ssh、token、.env） | high |
 | SHL-001 | 危险 shell（curl\|sh、eval、IEX） | **critical** |
 | PWD-001 | 密码赋值形态 | info |
@@ -41,7 +43,7 @@ dsh plugin --profile web add "github:ChenLaoshiYF/dsh-mcpguard"
 ```bash
 npm install
 npm run build     # 编译到 lib/
-node test/smoke.mjs  # 运行自测（15 项）
+node test/smoke.mjs  # 运行自测（19 项）
 ```
 
 ## 配置
