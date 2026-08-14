@@ -77,6 +77,25 @@ const IGNORE_PATTERNS = [
   /(复述|泄露|透露|展示).{0,8}(系统提示|system prompt|系统指令)/,
 ];
 
+// 角色扮演注入（v0.3.0 同步）
+const ROLEPLAY_PATTERNS = [
+  /(从现在开始|从现在起|接下来).{0,10}(你是|你扮演|你将扮演|请扮演|假装你是)/i,
+  /(你不再|你不是|忘记你).{0,8}(AI助手|AI 助手|语言模型|assistant|chatbot)/i,
+  /you\s+are\s+(now\s+)?(no\s+longer\s+)?(an?\s+)?(assistant|chatbot|ai|llm)/i,
+  /(act|behave|pretend|roleplay)\s+(as|like)\s+(an?\s+)?(hacker|coder|admin|root|terminal)/i,
+  /(扮演|假装|模拟).{0,8}(黑客|管理员|root|终端|系统)/,
+  /(system\s+prompt|instructions?)\s+(is\s+)?(now|replaced|overridden)/i,
+  /new\s+(instructions?|rules|directives?)\s+(apply|take\s+effect)/i,
+];
+
+// 多语言指令覆盖（v0.3.0 同步，日/韩）
+const I18N_OVERRIDE_PATTERNS = [
+  /(指示|命令|プロンプト).{0,8}(無視|無視して|無視しろ)/i,
+  /(これまでの|以前の).{0,6}(指示|命令).{0,8}(無視|すべて)/i,
+  /(지시|명령|프롬프트).{0,8}(무시|무시하고|무시해)/i,
+  /(이전|지금까지).{0,6}(지시|명령).{0,6}(무시|전부)/i,
+];
+
 // 危险路径
 const DANGEROUS_PATHS = [
   /[/\\]\.ssh[/\\]/, /[/\\]\.aws[/\\]/, /[/\\]\.git[/\\]config/,
@@ -255,6 +274,34 @@ function checkSuspiciousBehavior(text: string): string[] {
   return hits;
 }
 
+function checkRoleplay(text: string): string[] {
+  const hits: string[] = [];
+  for (const pat of ROLEPLAY_PATTERNS) {
+    const re = new RegExp(pat.source, 'ig');
+    let m: RegExpExecArray | null;
+    while ((m = re.exec(text)) !== null && hits.length < 20) {
+      const start = Math.max(0, m.index - 25);
+      const end = Math.min(text.length, m.index + m[0].length + 25);
+      hits.push(`位置 ${m.index}: …${text.slice(start, end)}…`);
+    }
+  }
+  return hits;
+}
+
+function checkI18nOverride(text: string): string[] {
+  const hits: string[] = [];
+  for (const pat of I18N_OVERRIDE_PATTERNS) {
+    const re = new RegExp(pat.source, 'ig');
+    let m: RegExpExecArray | null;
+    while ((m = re.exec(text)) !== null && hits.length < 20) {
+      const start = Math.max(0, m.index - 25);
+      const end = Math.min(text.length, m.index + m[0].length + 25);
+      hits.push(`位置 ${m.index}: …${text.slice(start, end)}…`);
+    }
+  }
+  return hits;
+}
+
 // ---------------------------------------------------------------------------
 // 引擎
 // ---------------------------------------------------------------------------
@@ -285,6 +332,12 @@ export function buildDefaultEngine(): Rule[] {
     { id: 'HMG-001', name: '同形字混淆 (homoglyph)', severity: 'high',
       description: '检测到使用视觉相近的 Unicode 字符冒充 ASCII 字母（如西里尔 а 冒充 a），用于绕过关键词过滤隐藏恶意指令。',
       check: checkHomoglyph },
+    { id: 'INJ-002', name: '角色扮演注入', severity: 'critical',
+      description: '检测到诱导模型切换角色/行为的表述（如“从现在开始你是黑客”），属于提示注入的语义变体，可绕过关键词过滤。',
+      check: checkRoleplay },
+    { id: 'INJ-003', name: '多语言指令覆盖', severity: 'high',
+      description: '检测到日语/韩语的指令覆盖表述（無視して / 무시하고），多语言提示注入正成为国际工具投毒的趋势手法。',
+      check: checkI18nOverride },
   ];
 }
 
