@@ -6,17 +6,14 @@
  * - mcpguard_scan_path: 扫描指定路径
  *
  * 基于 Cordis 插件系统（host 面），零运行时依赖。
+ * 兼容 DeepSeek Harness 0.1.0-rc.5：tools.register + execute + output。
  */
 
 import { buildDefaultEngine, scanText, severityScore, redact } from './rules.js';
 import { scanAll } from './scanner.js';
 
 export const name = 'mcpguard';
-export const inject = ['tools', 'logger'];
-export const Config = {
-  sensitivity: { type: 'string', default: 'medium', description: '灵敏度：low/medium/high' },
-  scanOnStartup: { type: 'boolean', default: false, description: '启动时自动扫描一次' },
-};
+export const inject = ['tools'];
 
 interface ScanResult {
   targets: number;
@@ -59,24 +56,32 @@ function runScan(paths: string[]): ScanResult {
   return { targets: targets.length, findings: total, critical, score: 100 - critical * 40, report };
 }
 
-export function apply(ctx: unknown, config: { sensitivity?: string; scanOnStartup?: boolean }): void {
-  const tools = (ctx as { tools: { add: (t: Record<string, unknown>) => void } }).tools;
-  const logger = (ctx as { logger?: { info?: (msg: string) => void } }).logger;
+export function apply(ctx: unknown): void {
+  const tools = (ctx as { tools: { register: (t: Record<string, unknown>) => void } }).tools;
 
-  tools.add({
+  // rc.5 要求的 output 定义（含 render 渲染）
+  const output = {
+    schema: { type: 'object' },
+    render: (_args: unknown, value: unknown) => [
+      { type: 'text', text: JSON.stringify(value, null, 2) },
+    ],
+  };
+
+  tools.register({
     name: 'mcpguard_scan',
     description:
       '明棱 mcpguard：扫描本机 MCP 配置与 skill 目录，检测提示注入、同形字、Unicode 隐形字符、危险 shell、凭据泄露。返回安全报告 JSON。',
     parameters: {
       type: 'object',
-      properties: {
-        sensitivity: { type: 'string', enum: ['low', 'medium', 'high'], description: '灵敏度（可选，默认取插件配置）' },
-      },
+      properties: {},
     },
-    call: async () => JSON.stringify(runScan([]), null, 2),
+    output,
+    async execute() {
+      return runScan([]);
+    },
   });
 
-  tools.add({
+  tools.register({
     name: 'mcpguard_scan_path',
     description:
       '明棱 mcpguard：扫描指定目录或文件，检测提示注入、同形字、Unicode 隐形字符、危险 shell、凭据泄露。返回安全报告 JSON。',
@@ -87,13 +92,11 @@ export function apply(ctx: unknown, config: { sensitivity?: string; scanOnStartu
       },
       required: ['path'],
     },
-    call: async (args: { path: string }) => JSON.stringify(runScan([args.path]), null, 2),
+    output,
+    async execute(args: { path: string }) {
+      return runScan([args.path]);
+    },
   });
-
-  if (config.scanOnStartup) {
-    const r = runScan([]);
-    logger?.info?.(`[mcpguard] 启动扫描完成: ${r.targets} 目标, ${r.findings} 发现, ${r.critical} critical`);
-  }
 }
 
-export default { name, inject, Config, apply };
+export default { name, inject, apply };
