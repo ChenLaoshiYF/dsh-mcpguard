@@ -38,24 +38,29 @@ dsh plugin --profile web add "github:ChenLaoshiYF/dsh-mcpguard"
 
 报告自动脱敏：API key、GitHub token、SSH 私钥块、JWT → `***`。
 
+## 兼容性
+
+兼容 DeepSeek Harness `0.1.0-rc.5` 及后续版本（tools.register + execute + output API）。
+
+兼容性问题请在 [GitHub Issues](https://github.com/ChenLaoshiYF/dsh-mcpguard/issues) 反馈，我们会快速修复（v0.1.2 已根据社区反馈修复 4 处 rc.5 不兼容）。
+
 ## 开发
 
 ```bash
 npm install
-npm run build     # 编译到 lib/
-node test/smoke.mjs  # 运行自测（19 项）
+npm run build     # 编译到 lib/（已随仓库分发，GitHub 直装可用）
+node test/smoke.mjs   # 规则自测（19 项）
+node test/robust.mjs  # 扫描器健壮性（超大文件/敏感目录/异常路径）
 ```
 
-## 配置
+## 安装配置
+
+插件通过 `cordis.patch.yml` 注册，无需额外配置：
 
 ```yaml
-# cordis.patch.yml
 - insert:
     - id: mcpguard
       name: dsh-mcpguard
-      config:
-        sensitivity: medium   # low/medium/high
-        scanOnStartup: false  # 启动时自动扫描
 ```
 
 ## 隐私

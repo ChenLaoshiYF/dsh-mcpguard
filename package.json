@@ -1,6 +1,6 @@
 ﻿{
     "name":  "dsh-mcpguard",
-    "version":  "0.1.2",
+    "version":  "0.1.3",
     "description":  "鏄庢１ mcpguard for DeepSeek Harness: scan skills, tools and MCP configs for prompt injection, homoglyph and tool poisoning.",
     "type":  "module",
     "main":  "lib/index.js",
