@@ -7,6 +7,7 @@
 [![CI](https://github.com/ChenLaoshiYF/dsh-mcpguard/actions/workflows/ci.yml/badge.svg)](https://github.com/ChenLaoshiYF/dsh-mcpguard/actions/workflows/ci.yml)
 ![Version](https://img.shields.io/github/v/release/ChenLaoshiYF/dsh-mcpguard)
 ![License](https://img.shields.io/badge/License-MIT-green)
+[![DSH Plugin Directory](https://dshplugin.dev/badges/chenlaoshiyf-dsh-mcpguard.svg)](https://dshplugin.dev/plugins/chenlaoshiyf-dsh-mcpguard)
 
 ---
 
