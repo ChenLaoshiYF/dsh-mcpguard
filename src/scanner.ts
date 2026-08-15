@@ -20,6 +20,7 @@ const SKILL_EXTS = new Set([
 const SKIP_DIRS = new Set([
   '.git', '.venv', 'venv', 'node_modules', '__pycache__',
   'dist', 'build', 'models', '.idea', '.vscode',
+  '.ssh', '.aws', '.gnupg', // 敏感凭据目录（v0.1.3 补充）
 ]);
 
 function walk(dir: string, targets: ScanTarget[], depth: number): void {
@@ -37,13 +38,13 @@ function walk(dir: string, targets: ScanTarget[], depth: number): void {
     } else if (e.isFile()) {
       const ext = path.extname(e.name).toLowerCase();
       if (!SKILL_EXTS.has(ext)) continue;
-      const st = fs.statSync(full);
-      if (st.size > 256 * 1024) continue; // 256KB 上限
       try {
+        const st = fs.statSync(full);
+        if (st.size > 256 * 1024) continue; // 256KB 上限
         const content = fs.readFileSync(full, 'utf-8');
         targets.push({ kind: 'file', name: e.name, filePath: full, content });
       } catch {
-        // 读取失败跳过
+        // 竞态/权限错误跳过
       }
     }
   }
@@ -52,9 +53,13 @@ function walk(dir: string, targets: ScanTarget[], depth: number): void {
 function scanFile(p: string, targets: ScanTarget[]): void {
   const ext = path.extname(p).toLowerCase();
   if (!SKILL_EXTS.has(ext)) return;
-  const st = fs.statSync(p);
-  if (st.size > 256 * 1024) return;
+  // 敏感目录检查：显式路径落在 .ssh/.aws/.git 等目录内则拒绝（防止凭据泄露）
+  const normalized = p.replace(/\\/g, '/');
+  if (/(^|\/)\.(ssh|aws|gnupg)(\/|$)/i.test(normalized)) return;
+  if (/(^|\/)\.git\/(config|credentials)(\/|$)/i.test(normalized)) return;
   try {
+    const st = fs.statSync(p);
+    if (st.size > 256 * 1024) return;
     const content = fs.readFileSync(p, 'utf-8');
     targets.push({ kind: 'file', name: path.basename(p), filePath: p, content });
   } catch {
