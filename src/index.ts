@@ -1,9 +1,10 @@
 /**
  * dsh-mcpguard - DeepSeek Harness 安全扫描插件
  *
- * 提供两个工具：
+ * 提供工具：
  * - mcpguard_scan: 扫描本机默认位置（MCP 配置 + skill 目录）
  * - mcpguard_scan_path: 扫描指定路径
+ * - mcpguard_observe: 运行时观察摘要（v0.2 experimental，只记录不拦截）
  *
  * 基于 Cordis 插件系统（host 面），零运行时依赖。
  * 兼容 DeepSeek Harness 0.1.0-rc.5：tools.register + execute + output。
@@ -11,9 +12,13 @@
 
 import { buildDefaultEngine, scanText, severityScore, redact } from './rules.js';
 import { scanAll } from './scanner.js';
+import { ToolObserver, makePreExecuteHook } from './runtime/observer.js';
 
 export const name = 'mcpguard';
 export const inject = ['tools'];
+
+/** 运行时观察器（v0.2，只记录不拦截） */
+export const observer = new ToolObserver();
 
 interface ScanResult {
   targets: number;
@@ -97,6 +102,39 @@ export function apply(ctx: unknown): void {
       return runScan([args.path]);
     },
   });
+
+  // ---- v0.2 运行时观察模式（experimental，只记录不拦截） ----
+  tools.register({
+    name: 'mcpguard_observe',
+    description:
+      '明棱 mcpguard：运行时观察摘要（v0.2 experimental）。查看工具调用投毒检测记录，只观察不拦截。返回统计 + 最近 10 条记录。',
+    parameters: {
+      type: 'object',
+      properties: {},
+    },
+    output,
+    async execute() {
+      return observer.summary();
+    },
+  });
+
+  // 挂接 tools/pre-execute（观察模式：永远 next() 放行，只记录）
+  // 防御：挂接失败不影响插件其他功能
+  try {
+    const toolsCtx = ctx as unknown as {
+      tools?: { preExecute?: (hook: unknown) => void };
+    };
+    if (typeof toolsCtx?.tools?.preExecute === 'function') {
+      toolsCtx.tools.preExecute(makePreExecuteHook(observer));
+    } else if (typeof (toolsCtx as { on?: (ev: string, fn: unknown) => void }).on === 'function') {
+      // 备用：Cordis 事件方式挂接
+      (toolsCtx as { on: (ev: string, fn: unknown) => void }).on('tools/pre-execute', makePreExecuteHook(observer));
+    } else {
+      console.warn('[明棱] tools/pre-execute 接缝不可用，观察模式未挂接（不影响扫描功能）');
+    }
+  } catch (e) {
+    console.warn('[明棱] 观察模式挂接失败（不影响扫描功能）:', e instanceof Error ? e.message : String(e));
+  }
 }
 
 export default { name, inject, apply };
