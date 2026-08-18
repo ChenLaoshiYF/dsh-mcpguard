@@ -31,8 +31,22 @@ Or install from Settings → Plugins, then restart `dsh --profile web`.
 |------|-------------|
 | `mcpguard_scan` | Scans the usual suspects: MCP configs + skill directories |
 | `mcpguard_scan_path` | Scans whatever path you point at |
+| `mcpguard_observe` | **v0.2 experimental** — runtime observation summary (watch only, never blocks) |
 
-Both return a JSON report: per-file score, findings with rule IDs, severity, and the offending excerpt — redacted so API keys and tokens never leak into the report itself.
+Both scan tools return a JSON report: per-file score, findings with rule IDs, severity, and the offending excerpt — redacted so API keys and tokens never leak into the report itself.
+
+## Runtime observation (v0.2, experimental)
+
+The plugin attaches to the `tools/pre-execute` seam and watches every tool call (including MCP tools) for poisoning patterns in the name, description and arguments.
+
+**By design it never blocks.** Watch mode records, logs and reports — the decision stays with you. No tool call is ever denied, delayed or rewritten; any internal error falls back to allow with a log line. This is the safe first step toward runtime guarding: collect evidence first, decide later.
+
+```
+Ask the agent:  mcpguard_observe
+→ { total: 3, bySeverity: { critical: 1, high: 2 }, recent: [...] }
+```
+
+Complements [dsh-tool-policy](https://github.com/Drifter-yh/dsh-tool-policy): it decides *who may call*, we watch *whether the content is clean*.
 
 ## The 10 rules
 
