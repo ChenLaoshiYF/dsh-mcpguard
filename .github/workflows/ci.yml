@@ -31,6 +31,9 @@ jobs:
       - name: Scanner robustness tests
         run: node test/robust.mjs
 
+      - name: Runtime observer tests (v0.2, 9 cases)
+        run: node test/observer.test.mjs
+
       - name: Verify lib is committed and in sync
         run: |
           npm run build
