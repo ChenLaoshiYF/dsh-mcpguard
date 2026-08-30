@@ -1,4 +1,4 @@
-﻿{
+{
     "name":  "dsh-mcpguard",
     "version":  "0.2.0",
     "description":  "Mingleng mcpguard for DeepSeek Harness 鈥?the first security plugin for DSH. Scans skills and MCP configs for prompt injection, homoglyphs, hidden Unicode, dangerous shell and credential leaks.",
