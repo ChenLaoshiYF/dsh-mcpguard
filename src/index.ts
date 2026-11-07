@@ -17,8 +17,7 @@ import { ToolObserver, makePreExecuteHook } from './runtime/observer.js';
 export const name = 'mcpguard';
 export const inject = ['tools'];
 
-/** 运行时观察器（v0.2，只记录不拦截） */
-export const observer = new ToolObserver();
+/** 旧的模块级单例已移除：观察状态改为 apply() 作用域内实例，随插件卸载清理 */
 
 interface ScanResult {
   targets: number;
@@ -63,6 +62,9 @@ function runScan(paths: string[]): ScanResult {
 
 export function apply(ctx: unknown): void {
   const tools = (ctx as { tools: { register: (t: Record<string, unknown>) => void } }).tools;
+
+  // 观察器随插件生命周期存在，不再泄漏到模块级
+  const observer = new ToolObserver();
 
   // rc.5 要求的 output 定义（含 render 渲染）
   const output = {
@@ -119,18 +121,48 @@ export function apply(ctx: unknown): void {
   });
 
   // 挂接 tools/pre-execute（观察模式：永远 next() 放行，只记录）
-  // 防御：挂接失败不影响插件其他功能
+  // 防御：挂接失败不影响插件其他功能；返回值纳入 ctx.effect 清理
   try {
     const toolsCtx = ctx as unknown as {
-      tools?: { preExecute?: (hook: unknown) => void };
+      tools?: { preExecute?: (hook: unknown) => unknown };
+      on?: (ev: string, fn: unknown) => unknown;
+      effect?: (fn: () => (() => void) | void) => unknown;
     };
+    const effect = toolsCtx.effect;
+
+    let dispose: unknown;
     if (typeof toolsCtx?.tools?.preExecute === 'function') {
-      toolsCtx.tools.preExecute(makePreExecuteHook(observer));
-    } else if (typeof (toolsCtx as { on?: (ev: string, fn: unknown) => void }).on === 'function') {
+      dispose = toolsCtx.tools.preExecute(makePreExecuteHook(observer));
+    } else if (typeof toolsCtx.on === 'function') {
       // 备用：Cordis 事件方式挂接
-      (toolsCtx as { on: (ev: string, fn: unknown) => void }).on('tools/pre-execute', makePreExecuteHook(observer));
+      dispose = toolsCtx.on('tools/pre-execute', makePreExecuteHook(observer));
     } else {
       console.warn('[明棱] tools/pre-execute 接缝不可用，观察模式未挂接（不影响扫描功能）');
+    }
+
+    const cleanup = (): void => {
+      try {
+        observer.reset();
+      } catch {
+        /* 清理失败不影响卸载 */
+      }
+      if (typeof dispose === 'function') {
+        try {
+          (dispose as () => void)();
+        } catch {
+          /* 同上 */
+        }
+      }
+    };
+
+    if (dispose !== undefined) {
+      if (typeof effect === 'function') {
+        // 交给 Cordis 作用域回收：stop / 重载时自动清理
+        effect(() => cleanup);
+      } else {
+        // 无 effect 接缝时，至少保证每次 apply 从干净状态开始
+        observer.reset();
+      }
     }
   } catch (e) {
     console.warn('[明棱] 观察模式挂接失败（不影响扫描功能）:', e instanceof Error ? e.message : String(e));

@@ -36,6 +36,77 @@ interface ToolCallInfo {
   args?: unknown;
 }
 
+/**
+ * 有界 JSON 序列化。
+ *
+ * 直接对超大参数调 JSON.stringify 会先构造完整字符串再截断，峰值内存与耗时都不可控。
+ * 这里改成递归遍历时实时扣预算，额度用完就停，不打完对象也不会拖死主线程。
+ */
+function stringifyBounded(value: unknown, maxChars: number): string {
+  let budget = Math.max(maxChars, 256);
+  const seen = new WeakSet<object>();
+
+  const walk = (v: unknown, depth: number): unknown => {
+    if (budget <= 0) return '[truncated]';
+    if (v === null || v === undefined) return v;
+
+    const t = typeof v;
+    if (t === 'string') {
+      const s = v as string;
+      if (s.length > budget) {
+        const cut = s.slice(0, budget);
+        budget = 0;
+        return cut + '…';
+      }
+      budget -= s.length;
+      return s;
+    }
+    if (t !== 'object') {
+      budget -= 8;
+      return v;
+    }
+
+    if (depth > 6) return '[depth-limit]';
+    const obj = v as object;
+    if (seen.has(obj)) return '[circular]';
+    seen.add(obj);
+
+    if (Array.isArray(v)) {
+      const out: unknown[] = [];
+      for (const item of v.slice(0, 32)) {
+        if (budget <= 0) {
+          out.push('[truncated]');
+          break;
+        }
+        out.push(walk(item, depth + 1));
+      }
+      return out;
+    }
+
+    const out: Record<string, unknown> = {};
+    let keys = 0;
+    for (const [k, val] of Object.entries(v as Record<string, unknown>)) {
+      if (budget <= 0) {
+        out['…'] = '[truncated]';
+        break;
+      }
+      if (keys++ >= 48) {
+        out['…'] = '[keys-limit]';
+        break;
+      }
+      budget -= k.length + 4;
+      out[k] = walk(val, depth + 1);
+    }
+    return out;
+  };
+
+  try {
+    return JSON.stringify(walk(value, 0));
+  } catch {
+    return '';
+  }
+}
+
 /** 观察记录（只保留摘要，不保留完整参数） */
 export interface Observation {
   ts: string;
@@ -65,20 +136,12 @@ export class ToolObserver {
       if (!this.cfg.enabled) return;
       if (this.cfg.trustedTools.includes(call.name)) return;
 
-      // 只检测 name + description + args 的 JSON 序列化（截断）
+      // 只检测 name + description + args 的有界序列化（预算用完即停）
       let payload = call.name || '';
       if (call.description) payload += ' ' + call.description;
       if (call.args !== undefined) {
-        try {
-          const argStr = JSON.stringify(call.args);
-          if (argStr.length > this.cfg.maxArgBytes) {
-            payload += ' ' + argStr.slice(0, this.cfg.maxArgBytes);
-          } else {
-            payload += ' ' + argStr;
-          }
-        } catch {
-          // JSON 序列化失败（循环引用等），跳过参数检测
-        }
+        const argStr = stringifyBounded(call.args, this.cfg.maxArgBytes);
+        if (argStr) payload += ' ' + argStr;
       }
 
       const findings = scanText(payload, `runtime:${call.name}`, this.engine);
