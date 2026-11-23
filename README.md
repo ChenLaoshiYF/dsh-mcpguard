@@ -2,7 +2,9 @@
 
 **The first security plugin for DeepSeek Harness.** Scans your skills and MCP configs for the stuff that bites AI agents: prompt injection, homoglyph smuggling, invisible Unicode, dangerous shell, leaked credentials.
 
-Ships as a normal DSH plugin — two tools, no daemon, no cloud, no API key. Runs everything on your machine.
+Ships as a DSH plugin with two scan tools and an experimental observation tool. Runs on your machine without a daemon or an API key.
+
+[MCPGuard project overview](https://github.com/ChenLaoshiYF/mcpguard) · [Releases](https://github.com/ChenLaoshiYF/dsh-mcpguard/releases/latest)
 
 [![CI](https://github.com/ChenLaoshiYF/dsh-mcpguard/actions/workflows/ci.yml/badge.svg)](https://github.com/ChenLaoshiYF/dsh-mcpguard/actions/workflows/ci.yml)
 ![Version](https://img.shields.io/github/v/release/ChenLaoshiYF/dsh-mcpguard)

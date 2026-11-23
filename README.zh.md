@@ -2,7 +2,9 @@
 
 **DeepSeek Harness 生态第一个安全插件。** 扫你本地的 skill 文件和 MCP 配置，抓那些会咬 AI Agent 的东西：提示注入、同形字偷渡、隐形 Unicode、危险 shell、泄露的凭据。
 
-就是一个普通的 DSH 插件——两个工具，没有常驻进程，不联网，不要 API key，全在你机器上跑。
+插件提供两个扫描工具和一个实验性的运行观察工具。全程在本机运行，无需常驻进程或 API 密钥。
+
+[明棱系列入口](https://github.com/ChenLaoshiYF/mcpguard) · [版本记录](https://github.com/ChenLaoshiYF/dsh-mcpguard/releases/latest)
 
 [![CI](https://github.com/ChenLaoshiYF/dsh-mcpguard/actions/workflows/ci.yml/badge.svg)](https://github.com/ChenLaoshiYF/dsh-mcpguard/actions/workflows/ci.yml)
 ![Version](https://img.shields.io/github/v/release/ChenLaoshiYF/dsh-mcpguard)
